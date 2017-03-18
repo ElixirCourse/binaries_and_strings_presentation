@@ -82,8 +82,6 @@ iex> bit_size(<< 34::5, 23::2, 12::2 >>)
 
 #HSLIDE
 ### Проверки
-
-Има два метода за проверяване на типа на променлива, свързани с `binary` структурите.
 1. `is_bitstring` - Винаги е истина за каквато и да е валидна поредица от данни между `<<` и `>>`. Няма значение дължината върната от `bit_size`.
 2. `is_binary` - Истина е само ако `bit_size` връща число кратно на `8` - тоест структурата е поредица от байтове.
 
@@ -122,19 +120,28 @@ iex> z
 << 83, 43, 156 >>
 
 iex> << x, y, z >> = << 83, 79, 83, 43, 156 >>
-** (MatchError) no match of right hand side value: <<83, 79, 83, 43, 156>>
+** (MatchError)
 ```
 
 #HSLIDE
 ```elixir
-iex> << sign::size(1), exponent::size(11), mantissa::size(52) >> = << 4815.162342::float >>
+<<
+  sign::size(1),
+  exponent::size(11),
+  mantissa::size(52)
+>> = << 4815.162342::float >>
 <<64, 178, 207, 41, 143, 62, 204, 196>>
+
 iex> sign
 0
 ```
 
+#HSLIDE
 ```elixir
-iex> :math.pow(-1, sign) * (1 + mantissa / :math.pow(2, 52)) * :math.pow(2, exponent - 1023)
+:math.pow(-1, sign) *
+(1 + mantissa / :math.pow(2, 52)) *
+:math.pow(2, exponent - 1023)
+
 4815.162342
 ```
 
@@ -159,13 +166,13 @@ iex> y
 ```
 
 #HSLIDE
-* Интересно нещо свързано с модификаторите е, че `size` работи с тях.
-* Да речем `size` задава дължина в битове, когато работим с `integer`.
+* `size` задава дължина в битове, когато работим с `integer`.
 * Aко работим с `binary` модификатор, `size` е в байтове.
 
 #HSLIDE
 ```elixir
-iex> << x::binary-size(4), _::binary >> = << 83, 222, 0, 345, 143, 87 >>
+iex> << x::binary-size(4), _::binary >> =
+  << 83, 222, 0, 345, 143, 87 >>
 <<83, 222, 0, 89, 143, 87>>
 iex> x # 4 байта
 <<83, 222, 0, 89>>
@@ -176,9 +183,9 @@ iex> x # 4 байта
 ![Image-Absolute](assets/implementation.jpg)
 
 #HSLIDE
-* Всеки процес в `Elixir` има собствен `heap`.
-* За всеки процес различни структури от данни и стойности са съхранени в този `heap`. <!-- .element: class="fragment" -->
-* Когато два процеса си комуникират, съобщенията, които се изпращат между тях се копират между `heap`-овете им. <!-- .element: class="fragment" -->
+* Всеки процес в Elixir има собствен heap.
+* За всеки процес различни структури от данни и стойности са съхранени в този heap <!-- .element: class="fragment" -->
+* Когато два процеса си комуникират, съобщенията се копират между heap-овете им. <!-- .element: class="fragment" -->
 
 #HSLIDE
 ### Heap Binary
@@ -187,10 +194,10 @@ iex> x # 4 байта
 
 #HSLIDE
 ### Refc Binary
-* Когато структурката ни е по-голяма от `64` **байта**, тя не се пази в `process heap`-a.
+* Когато структурката ни е по-голяма от `64` **байта**.
 * Пази се в обща памет за всички process-и на даден `node`.
-* В `porcess heap`-a се пази малко обектче, наречено **ProcBin**, което е указател към даденото `binary`.
-* `binary` структурка може да бъде сочена от множество такива `ProcBin` указатели от множество процеси.
+* В `porcess heap`-a се пази малко обектче - **ProcBin**.
+* `binary` структурка може да бъде сочена от множество `ProcBin` указатели от множество процеси.
 
 #HSLIDE
 * Пази се _reference counter_ за всеки от тези указатели.
@@ -267,8 +274,11 @@ iex> ?Ъ
 ```
 
 ```
-(110)10000 -> Префиксваме с 110 и допълваме до байт с битовете от числото
-(10)101010 -> Префиксваме с 10 и допълваме до байт с битовете, които останаха
+Префиксваме с 110 и допълваме до байт с битовете от числото
+(110)10000
+
+Префиксваме с 10 и допълваме до байт с битовете, които останаха
+(10)101010
 ```
 
 #HSLIDE
@@ -454,7 +464,10 @@ defmodule ACounter do
   defp count_with_next_grapheme("", n), do: n
   defp count_with_next_grapheme(str, n) do
     {next_grapheme, rest} = String.next_grapheme(str)
-    count_with_next_grapheme(rest, next_n(next_grapheme == "a", n))
+    count_with_next_grapheme(
+      rest,
+      next_n(next_grapheme == "a", n)
+    )
   end
 
   defp next_n(true, n), do: n + 1
@@ -479,7 +492,8 @@ defmodule ACounter do
 
   defp count_with_match("", n), do: n
 
-  defp count_with_match(<< c::utf8, rest::binary >>, n) when c == ?a do
+  defp count_with_match(<< c::utf8, rest::binary >>, n)
+  when c == ?a do
     count_with_match(rest, n + 1)
   end
 

@@ -216,8 +216,11 @@ iex> x # 4 байта
 * Подобен на `sub binary`, но оптимизиран за `binary pattern matching`.
 * Държи указател към двоичните данни в паметта.
 * Когато нещо е `match`-нато, указателят се придвижва напред.
+
+#HSLIDE
+### Matching context
 * Компилаторът избягва създаването на `sub binary` за всяка `match`-ната променлива.
-* Ако е възможно и преизползва един и същ `match context`.
+* Ако е възможно се преизползва един и същ `match context`.
 
 #HSLIDE
 ```elixir
@@ -469,9 +472,6 @@ defmodule ACounter do
       next_n(next_grapheme == "a", n)
     )
   end
-
-  defp next_n(true, n), do: n + 1
-  defp next_n(false, n), do: n
 end
 ```
 

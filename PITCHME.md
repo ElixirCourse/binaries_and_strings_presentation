@@ -1,6 +1,6 @@
 #HSLIDE
 ## Низове и binaries
-![Image-Absolute](assets/basics.jpg)
+![Image-Absolute](assets/title.jpg)
 
 #HSLIDE
 ## За какво ще си говорим днес?
@@ -8,10 +8,11 @@
 1. Как да да работим с двоичните структури - binaries
 2. Как са представени двоичните структури
 3. Низове
-4. Някои уловки при низовете
+4. Обхождане на низове
 
 #HSLIDE
 ## Binaries
+![Image-Absolute](assets/binary_code.jpg)
 
 #HSLIDE
 ### Конструкция
@@ -20,7 +21,7 @@
 
 << 123, 23, 1 >>
 
-<< 0b01111011, 0b00010111, 0b00000001 >> == << 123, 23, 1 >>
+iex> << 0b01111011, 0b00010111, 0b00000001 >> == << 123, 23, 1 >>
 true
 
 iex> << 280 >>
@@ -50,6 +51,7 @@ iex> << 5.5::float >>
 
 #HSLIDE
 ### Конкатенация
+![Image-Absolute](assets/concatenate.jpg)
 
 #HSLIDE
 ```elixir
@@ -87,6 +89,7 @@ iex> bit_size(<< 34::5, 23::2, 12::2 >>)
 
 #HSLIDE
 ### Sub-binaries
+![Image-Absolute](assets/sub_binary.jpg)
 
 #HSLIDE
 С функцията `binary_part`, можем да боравим с части от дадена `binary` структура:
@@ -118,7 +121,6 @@ iex> << x, y, z::binary >> = << 83, 79, 83, 43, 156 >>
 iex> z
 << 83, 43, 156 >>
 
-# Ако не го направим така, автоматично сапоставя променлива на 1 байт:
 iex> << x, y, z >> = << 83, 79, 83, 43, 156 >>
 ** (MatchError) no match of right hand side value: <<83, 79, 83, 43, 156>>
 ```
@@ -171,9 +173,10 @@ iex> x # 4 байта
 
 #HSLIDE
 ## Binaries - имплементация
+![Image-Absolute](assets/implementation.jpg)
 
 #HSLIDE
-* По принцип всеки процес в `Elixir` има собствен `heap`.
+* Всеки процес в `Elixir` има собствен `heap`.
 * За всеки процес различни структури от данни и стойности са съхранени в този `heap`. <!-- .element: class="fragment" -->
 * Когато два процеса си комуникират, съобщенията, които се изпращат между тях се копират между `heap`-овете им. <!-- .element: class="fragment" -->
 
@@ -219,318 +222,273 @@ a = << y, 15, 16, 19 >>
 
 #HSLIDE
 ## Низове
+![Image-Absolute](assets/strings.jpg)
 
 #HSLIDE
-### Низове
-Низовете в `Elixir` се дефинират с двойни кавички и са с _UTF-8_ encoding:
+Низовете в Elixir използват `unicode` - предтавляват `binary` структури -
+поредица от `unicode codepoint`-и в `utf8` енкодинг.
 
 #HSLIDE
-```elixir
-iex> "Здрасти"
-"Здрасти"
-iex> "Здрасти #{:Pesho}" # Интерполация
-"Здрасти Pesho"
-iex> "Един
-...> стринг
-...> на
-...> повече
-...> от един ред"
-"Един\nстринг\nна\nповече\nот един ред"
+* При `UTF-8` даден `codepoint` може да се съхранява в от един до четири байта.
+* Първите `128` кодпойнта съвпадат с `ASCII` `codepoint`-ите.
+* Te се пазят в един байт, който започва с `0`:
+
+```
+0XXXXXXX
 ```
 
 #HSLIDE
 ```elixir
-iex> is_binary("Здрасти")
+iex> << 0b00110000 >>
+"0"
+iex> << 0b00110001 >>
+"1"
+iex> << 0b00110010 >>
+"2"
+iex> << 0b00110101 >>
+"5"
+iex> << 0b00111001 >>
+"9"
+```
+
+#HSLIDE
+* След като `128`-възможности за `1` байт се изчерпат, започват да се ползват по `2` байта:
+* В този шаблон за `2`-байтови `codepoint`-и, виждаме че първият байт винаги започва с `110`.
+* Двете единици значат - `2` байта, байт започващ с `10`, означава че е част от поредица от байтове.
+
+```
+110XXXXX 10XXXXXX
+```
+
+#HSLIDE
+```elixir
+iex> ?Ъ
+1066
+```
+
+```
+(110)10000 -> Префиксваме с 110 и допълваме до байт с битовете от числото
+(10)101010 -> Префиксваме с 10 и допълваме до байт с битовете, които останаха
+```
+
+#HSLIDE
+```elixir
+iex> Integer.to_string(1066, 2)
+"10000101010"
+```
+
+```elixir
+iex> << 0b11010000, 0b10101010 >>
+"Ъ"
+```
+
+#HSLIDE
+Шаблонът за `3`-байтови `codepoint`-и е:
+
+```
+1110XXXX 10XXXXXX 10XXXXXX
+```
+
+#HSLIDE
+А шаблонът за `4`-байтовите:
+
+```
+11110XXX 10XXXXXX 10XXXXXX 10XXXXXX
+```
+
+#HSLIDE
+Можем да заключим че има три типа байтове:
+1. Единичен - започва с `0` и представлява първите `128` ASCII-compatible `codepoint`-a.
+2. Байт-продължение - започва с `10`, следва други байтове в `codepoint` от повече от `1` байт.
+3. Байт-начало - започва с `110`, `1110`, `11110`, първи байт от серия байтове представляващи `codepoint`.
+
+#HSLIDE
+### Графеми и codepoint-и
+![Image-Absolute](assets/graphemes.jpg)
+
+#HSLIDE
+* Символите или графемите не винаги са точно един `codepoint`.
+* Има графеми, които могат да се представят и като един `codepoint` и като няколко.
+
+#HSLIDE
+```elixir
+iex> name = "Николай"
+"Николай"
+iex> String.codepoints(name)
+["Н", "и", "к", "о", "л", "а", "й"]
+iex> String.graphemes(name)
+["Н", "и", "к", "о", "л", "а", "й"]
+iex> String.graphemes(name) == String.codepoints(name)
 true
-iex> String.length("Здрасти") # Брой на символи
+```
+
+#HSLIDE
+```elixir
+iex> name = "Николаи\u0306"
+"Николай"
+iex> String.codepoints(name)
+["Н", "и", "к", "о", "л", "а", "и", ̆"<не може да се представи>"]
+iex> String.graphemes(name)
+["Н", "и", "к", "о", "л", "а", "й"]
+```
+
+#HSLIDE
+* Функции като `String.reverse/1`, работят правилно, защото ползват `String.graphemes/1`.
+
+```elixir
+iex(288)> String.reverse(name2)
+"йалокиН"
+# Аналогично:
+iex(290)> String.graphemes(name2) |> Enum.reverse |> Enum.join("")
+"йалокиН"
+```
+
+#HSLIDE
+### Дължина на низ
+```elixir
+iex> Kernel.bit_size "Николаи\u0306"
+128
+iex> Kernel.byte_size "Николаи\u0306"
+16
+iex> String.length "Николаи\u0306"
 7
-iex> byte_size("Здрасти") # Брой на байтове
-14
-iex> "Бял" <> " мерцедес!" # Конкатенация
-"Бял мерцедес!"
 ```
 
 #HSLIDE
-### Списъци
-* Има специален модул, `List`, за работа с тях.
-* Не държат стойностите си подредени в паметта.
-* Намирането на дължината им, четене на стойност по index, добавяне на стойност на index и триене на стойност на index са все линейни операции.
-
-#HSLIDE
+### Под-низове
 ```elixir
-iex> [1, 2, "три", 4.0] # Не са хомогенни
-[1, 2, "три", 4.0]
-iex> length [1, 2, 3, 5, 8] # Дължината
-5
-iex> hd [1, 2, 3, 5, 8]
-1
-iex> tl [1, 2, 3, 5, 8]
-[2, 3, 5, 8]
-iex> is_list([1, 2])
-true
-iex> 'Еликсир' # Списък от unicode codepoint-и
-[1045, 1083, 1080, 1082, 1089, 1080, 1088]
-iex> [83, 79, 83]
-'SOS'
-```
-
-#HSLIDE
-### Кортежи
-![Image-Absolute](assets/tuple.jpg)
-
-#HSLIDE
-### Кортежи
-* Кортежите съхраняват елементите си подредени един след друг в паметта.
-* Достъпът до елемент по индекс и взимането на дължината им са константни операции.
-
-#HSLIDE
-### Кортежи
-* Заедно с атомите за връщане на множество стойности от функция.
-* За `pattern matching` - ще видим малко по-долу.
-* Read-only колекция, защото писането в тях е скъпа операция.
-
-#HSLIDE
-```elixir
-iex> {:ok, 7}
-{:ok, 7}
-iex> tuple_size({:ok, 7, 5})
-3
-iex> is_tuple({:ok, 7, 5})
-true
-```
-
-#HSLIDE
-### Keyword lists
-Списъци, които съдържат `tuple`-и от по два елемента - атом и каквато и да е стойност.
-
-#HSLIDE
-```elixir
-iex>[{:one, 1}, {:two, 2}]
-[one: 1, two: 2]
-iex> [one: 1, two: 2]
-[one: 1, two: 2]
-```
-
-#HSLIDE
-* Ако keyword list е последен аргумент на функция, можем да пропуснем квадратните скоби при извикване:
-```elixir
-iex> f(1, 2, three: 3, four: 4)
-```
-
-#HSLIDE
-* Ключовете им могат да се повтарят.
-* Използват се и за предаване на command line параметри или опции на функции.
-* Пример е `String.split/3`.
-```elixir
-iex> String.split("one,two,,,three,,,four", ",", trim: true)
-["one", "two", "three", "four"]
-```
-
-#HSLIDE
-### Maps
-* Колекции от ключове и стойности.
-* `Map`-овете в `Elixir` не позволяват еднакви ключове.
-* За ключове може да се използва всичко и дори няма нужда да бъдат един и същи тип,
-но обикновено се използват низове или атоми.
-
-#HSLIDE
-### Бинарен тип (Binaries)
-Прдставляват поредици от битове и байтове.
-```elixir
-iex> << 2 >> # Цялото число 2 в 1 байт
-<<2>>
-iex> byte_size << 2 >>
-1
-iex> << 255 >> # Цялото число 255 в 1 байт
-<<255>>
-iex> << 256 >> # Превърта и става 0
-<<0>>
-iex> <<1, 2>> # Две цели числа в два байта.
-<<1, 2>>
-iex> byte_size << 1, 2 >>
-2
+iex> String.at("Искам бира!", 6)
+"б"
+iex> String.at("Искам бира!", -1)
+"!"
+iex> String.at("Искам бира!", 12)
+nil
 ```
 
 #HSLIDE
 ```elixir
-iex> << 5::size(3), 1::size(1), 5::size(4) >>
-<<181>>
-iex> 0b10110101
-181
-iex> byte_size << 5::size(3), 1::size(1), 5::size(4) >>
-1
-iex> is_bitstring << 5::size(3), 1::size(1) >>
-true
-iex> is_binary << 5::size(3), 1::size(1) >>
-false
-```
-
-#HSLIDE
-* Интересен факт - низовете в `Elixir` са имплементирани като `binary` тип.
-* Спомняте си че `is_binary("Стринг")` връщаше `true`.
-```elixir
-iex> <<208, 170, 208, 156>> = "ЪМ"
-"ЪМ"
-```
-
-#HSLIDE
-### Анонимни функции
-```elixir
-iex> fn (x) -> x + 1 end
-#Function<6.52032458/1 in :erl_eval.expr/5>
-iex> (fn (x) -> x + 1 end).(4) # Извикване
-5
-iex> is_function((fn (x) -> x + 1 end))
-true
+iex> << _::binary-size(11), x::utf8, _::binary >> = "Искам бира!"
+"Искам бира!"
+iex> x
+1073
+iex> << x::utf8 >>
+"б"
 ```
 
 #HSLIDE
 ```elixir
-iex> &(&1 + 1)
-#Function<6.52032458/1 in :erl_eval.expr/5>
-iex> (&(&1 + 1)).(4)
-5
-```
-
-#HSLIDE
-### Други типове
-* Други типове са `Port`, `Reference` и `PID`, които се използват с процеси.
-* Има и регулярни изрази. `~r/\w+/im`
-* Ranges : `(1..1000)`
-* Има различни shortcut-синтаксиси за дефиниране на някои от типовете.
-
-#HSLIDE
-## Съпоставяне на образци
-![Image-Absolute](assets/patterns.jpg)
-
-#HSLIDE
-## Съпоставяне на образци
-* В Elixir `pattern matching`-a е еднa от най-важните и основни особености.
-* Операторът `=` се нарича `match operator`.
-* Можем да го сравним с знака `=` в математиката.
-
-#HSLIDE
-## Съпоставяне на образци
-* Използвайки го, превръщаме целия израз в уравнение, в което сравняваме лявата с дясната страна.
-* Ако сравнението е успешно се връща стойността на това уравнение, ако не - има грешка.
-
-#HSLIDE
-```elixir
-iex> x = 5
-5
-iex> 5 = x
-5
-iex> 4 = x
-** (MatchError) no match of right hand side value: 1
-
-```
-
-#HSLIDE
-#### Засега за `match operator`-а знаем:
-1. С него могат да се дефинират променливи.
-2. С него могат да се правят проверки - дали дадена променлива има дадена стойност.
-
-#HSLIDE
-* Имената на променливи задължително започват с малка латинска буква или подчертавка (`_`),
-следвана от букви, цифри или подчертавки.
-* Могат да завършват на `?` или `!`.
-* Операторът `=` ще опита да присвои на всички възможни променливи от ляво стойности от дясно.
-
-#HSLIDE
-```elixir
-iex> {one, tWo, t3, f_our, five!} = {1, 2, 3, 4, 5}
-{1, 2, 3, 4, 5}
-iex> one
-1
-iex> tWo
-2
-iex> t3
-3
-iex> f_our
-4
-iex> five!
-5
+iex> << "Искам ", x::utf8, _::binary >> = "Искам бира!"
+"Искам бира!"
 ```
 
 #HSLIDE
 ```elixir
-iex(107)> [head|tail] = [1, 2, 4, 5]
-[1, 2, 4, 5]
-iex> head
-1
-iex> tail
-[2, 4, 5]
-iex> [a, b|tail] = [1, 2, 4, 5]
-[1, 2, 4, 5]
-iex> a
-1
-iex> b
-2
-iex> tail
-[4, 5]
+iex> String.next_codepoint("Николаи\u0306")
+{"Н", "иколай"}
+iex> String.next_codepoint("и\u0306")
+{"и", "<нещо което скапва hilighting-a на кода>"}
+iex> String.next_grapheme("и\u0306")
+{"й", ""}
+iex> String.next_grapheme_size("и\u0306")
+{4, ""}
+iex> String.next_grapheme_size("\u0306")
+{2, ""}
 ```
 
 #HSLIDE
 ```elixir
-iex> g = fn
-...>   0 -> 0
-...>   x -> x - 1
-...> end
-#Function<6.52032458/1 in :erl_eval.expr/5>
-iex> g.(0)
-0
-iex> g.(3)
-2
+poem = """
+  Ще строим завод,
+  огромен завод,
+  със яки
+        бетонни стени!
+  Мъже и жени,
+  народ,
+  ще строим завод
+  за живота!
+"""
+
+iex> large_factory = String.slice(poem, 18..30)
+"огромен завод"
+iex> String.slice(poem, 18, 13)
+"огромен завод"
 ```
 
 #HSLIDE
-![Image-Absolute](assets/pins.jpg)
-
-#HSLIDE
-* В `Elixir` e възможно да променим стойността на променлива.
-* В `Erlang` това не е възможно.
-
-#HSLIDE
-Ако искаме една променлива, която вече съществува да не промени стойността си при съпоставяне,
-можем да използваме `pin` оператора - `^`.
-```elixir
-iex> x = 5
-5
-iex> ^x = 6
-** (MatchError) no match of right hand side value: 6
-```
+## Обхождане на низове
+![Image-Absolute](assets/iterate_path.jpg)
 
 #HSLIDE
 ```elixir
-iex> {y, ^x} = {5, 4}
+defmodule ACounter do
+  def count_it_with_slice(str) do
+    count_with_slice(str, 0)
+  end
+
+  defp count_with_slice("", n), do: n
+  defp count_with_slice(str, n) do
+    the_next_n = next_n(String.starts_with?(str, "a"), n)
+    count_with_slice(String.slice(str, 1..-1), the_next_n)
+  end
+
+  defp next_n(true, n), do: n + 1
+  defp next_n(false, n), do: n
+end
 ```
 
 #HSLIDE
-Ако се опитаме да присвоим стойност на `unbound` променлива (досега не е съществувала),
-използвайки `pin` оператора, ще получим грешка.
+* Това е около `3.18` секунди за низ с дължина над 2_000_000
+
 ```elixir
-iex> ^z = 4
-** (CompileError) iex:56: unbound variable ^z
+iex> :timer.tc(ACounter, :count_it_with_slice, [str])
+{3176592, 589251}
 ```
-
-#HSLIDE
-## Неизменимост
-![Image-Absolute](assets/immutable.png)
-
-#HSLIDE
-## Неизменимост
-* Ще си говорим за immutability, pattern matching и рекурсия на всяка лекция.
-* Или поне ще ги споменаваме. <!-- .element: class="fragment" -->
-* Както и за процесите! <!-- .element: class="fragment" -->
 
 #HSLIDE
 ```elixir
-iex> base_list = [1, 2, 3]
-[1, 2, 3]
-iex> new_list = [0 | base_list]
-[0, 1, 2, 3]
+defmodule ACounter do
+  def count_it_with_next_grapheme(str) do
+    count_with_next_grapheme(str, 0)
+  end
+
+  defp count_with_next_grapheme("", n), do: n
+  defp count_with_next_grapheme(str, n) do
+    {next_grapheme, rest} = String.next_grapheme(str)
+    count_with_next_grapheme(rest, next_n(next_grapheme == "a", n))
+  end
+
+  defp next_n(true, n), do: n + 1
+  defp next_n(false, n), do: n
+end
 ```
 
 #HSLIDE
-## Това беше за днес.
+* Добре същият отговор, но сега за `0.8` секунди
+
+```elixir
+iex> :timer.tc(ACounter, :count_it_with_next_grapheme, [str])
+{792885, 589251}
+```
+
+#HSLIDE
+```elixir
+defmodule ACounter do
+  def count_it_with_match(str) do
+    count_with_match(str, 0)
+  end
+
+  defp count_with_match("", n), do: n
+
+  defp count_with_match(<< c::utf8, rest::binary >>, n) when c == ?a do
+    count_with_match(rest, n + 1)
+  end
+
+  defp count_with_match(<< _::utf8, rest::binary >>, n) do
+    count_with_match(rest, n)
+  end
+end
+```
+
+#HSLIDE
+## Край
 ![Image-Absolute](assets/end.jpg)

@@ -424,7 +424,7 @@ x
 String.next_codepoint("Николаи\u0306")
 #=> {"Н", "иколай"}
 String.next_codepoint("и\u0306")
-#=> {"и", "<нещо което скапва hilighting-a на кода>"}
+#=> {"и", "<un-printable>"}
 String.next_grapheme("и\u0306")
 #=> {"й", ""}
 String.next_grapheme_size("и\u0306")
